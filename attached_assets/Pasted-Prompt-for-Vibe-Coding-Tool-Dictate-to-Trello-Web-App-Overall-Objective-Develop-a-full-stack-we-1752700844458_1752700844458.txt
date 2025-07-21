@@ -1,0 +1,143 @@
+Prompt for Vibe Coding Tool: "Dictate to Trello" Web App
+
+Overall Objective:
+Develop a full-stack web application named "Dictate to Trello" that allows a user to dictate tasks, have them intelligently processed by AI, automatically convert them into Trello cards, and receive a weekly email reminder. Prioritize a modern, minimalist UI and robust backend processing.
+
+1. User Interface (Frontend)
+
+Technology: Build as a client-side web application. Use a modern JavaScript framework like React (preferred if no specific framework is stated by the tool, otherwise generate using generic JS).
+
+Design: Modern, minimalist, clean, and intuitive. Focus on user experience for dictation.
+
+Pages/Components:
+
+Login Page:
+
+A prominent button or link labeled "Login with Google".
+
+Clear visual feedback for login status.
+
+Dictation Page (Main App View):
+
+A large, easily accessible "Start Recording" button.
+
+Visual feedback during recording (e.g., a simple waveform animation, a timer, or a "Recording..." status indicator).
+
+A "Stop Recording" button to end dictation.
+
+Display a simple confirmation message after tasks are successfully processed and sent (e.g., "Tasks sent to Trello!").
+
+No display or editing of transcribed text on the frontend.
+
+Audio Capture: Use browser's standard MediaDevices API for microphone access and audio recording. The recorded audio should be sent to the backend as a suitable format (e.g., WebM, MP3, WAV) for Whisper API.
+
+Error Handling: Display user-friendly messages for any errors (e.g., microphone not accessible, API issues, network problems).
+
+Deployment: The frontend should be deployable as a static site (e.g., to Vercel, Netlify, or Google Cloud Storage).
+
+2. Backend Services (Google Cloud Platform - Python)
+
+Platform: Google Cloud Platform (GCP).
+
+Language: Python.
+
+Deployment Target: Utilize Google Cloud Functions or Google Cloud Run for serverless, event-driven execution.
+
+Key Services Required:
+
+Google Cloud Functions / Cloud Run
+
+Google Cloud Scheduler
+
+Google Identity Platform (for OAuth authentication)
+
+Google Cloud Project (for service account and API management)
+
+API Endpoints:
+
+/api/dictate-task (POST):
+
+Authentication: Requires user authentication via Google OAuth (verify Google ID token from frontend).
+
+Input: Receives recorded audio data (binary, e.g., Base64 encoded or direct binary stream).
+
+Process:
+
+Sends the audio data to OpenAI Whisper API for high-quality transcription.
+
+OpenAI API Key: YOUR_OPENAI_API_KEY_HERE (must be securely accessed as environment variable).
+
+Sends the raw transcribed text to Anthropic Claude API.
+
+Anthropic API Key: YOUR_ANTHROPIC_API_KEY_HERE (must be securely accessed as environment variable).
+
+Anthropic System Prompt: "You are an expert project manager. Your task is to analyze dictated spoken tasks and transform them into clear, actionable, and measurable Trello-ready cards. Break down larger concepts into multiple distinct tasks if necessary. For each generated Trello card, provide a concise 'Card Title' and a more detailed 'Card Description'. Format your output as a JSON array of objects, where each object has 'title' and 'description' keys. Example: [{'title': 'Task A', 'description': 'Details for Task A'}, {'title': 'Task B', 'description': 'Details for Task B'}]."
+
+Parses the JSON output from Anthropic Claude.
+
+For each individual task object ({'title': '...', 'description': '...'}) received from Anthropic:
+
+Constructs an email.
+
+Email Subject: The title from the Anthropic output.
+
+Email Body: The description from the Anthropic output.
+
+Email Sender: tasks@maxkarmann.com
+
+Email Recipient: maximiliankarmann2+a2hd3mggvvtvsdeaggmy@boards.trello.com
+
+Sends the email using the Google Workspace Gmail API.
+
+Output: Returns a success/failure status to the frontend.
+
+/api/send-reminder (GET/POST - triggered by Cloud Scheduler):
+
+Authentication: Triggered internally by Google Cloud Scheduler (no user authentication needed for this endpoint directly).
+
+Process:
+
+Constructs a reminder email.
+
+Email Sender: tasks@maxkarmann.com
+
+Email Recipient: YOUR_REMINDER_EMAIL_ADDRESS_HERE (e.g., hello@maxkarmann.com)
+
+Email Subject: "Time to Organize Your Week with Task Dictator!"
+
+Email Body: "Hi Maximilian, it's 6:30 PM CEST on Sunday! Time to get organized for the week ahead. Dictate your tasks into the app here: YOUR_FRONTEND_APP_URL_HERE"
+
+Sends the email using the Google Workspace Gmail API.
+
+API Key Management: Implement secure handling of API keys using Google Cloud Secret Manager or environment variables within Cloud Functions/Run.
+
+Google Workspace (Gmail API) Integration: Configure a Google Cloud service account with appropriate permissions to send emails from tasks@maxkarmann.com.
+
+3. Scheduled Task (Google Cloud Scheduler)
+
+Service: Google Cloud Scheduler.
+
+Job: Create a cron job.
+
+Schedule: 0 18 * * 0 (translates to 6:00 PM UTC on Sundays. Note: For 6:30 PM CEST, which is UTC+2, this means the trigger should be at 16:30 UTC. So, 30 16 * * 0 in UTC to fire at 18:30 CEST. Please confirm your exact timezone preference.)
+
+Action: Trigger the /api/send-reminder endpoint of the backend Cloud Function/Run service.
+
+4. Deployment Strategy
+
+Frontend: Deploy as a static site.
+
+Backend: Deploy Cloud Functions/Run services.
+
+Secrets: Manage API keys and sensitive configurations as environment variables or using Google Cloud Secret Manager.
+
+5. Placeholder Values (Replace with your actual values)
+
+YOUR_OPENAI_API_KEY_HERE
+
+YOUR_ANTHROPIC_API_KEY_HERE
+
+YOUR_REMINDER_EMAIL_ADDRESS_HERE (e.g., hello@maxkarmann.com)
+
+YOUR_FRONTEND_APP_URL_HERE (the public URL of your deployed frontend)
+

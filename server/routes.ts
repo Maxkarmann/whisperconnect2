@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { transcribeAudio } from "./services/openai";
 import { processTasksWithGemini } from "./services/gemini";
-import { sendTasksToTrello } from "./services/email";
+import { sendTasksToTrello } from "./services/trello";
 import { insertTaskSchema, insertApiUsageSchema } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
@@ -83,7 +83,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalCost,
       });
 
-      // Step 6: Send tasks to Trello via email (async)
+      // Step 6: Send tasks to Trello directly via API (async)
       sendTasksToTrello(processedTasks, task.id)
         .then(() => {
           storage.updateTaskEmailSent(task.id);
@@ -99,7 +99,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         transcription: transcriptionResult.text,
         tasks: processedTasks,
         cost: totalCost,
-        message: "Tasks processed and sent to Trello!",
+        message: "Tasks processed and created as Trello cards!",
       });
 
     } catch (error) {
@@ -145,6 +145,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching monthly stats:", error);
       res.status(500).json({ message: "Failed to fetch monthly stats" });
+    }
+  });
+
+  // Trello board management endpoints
+  app.get('/api/trello/boards', isAuthenticated, async (req: any, res) => {
+    try {
+      const { trelloService } = await import('./services/trello');
+      const boards = await trelloService.getBoards();
+      res.json(boards);
+    } catch (error) {
+      console.error("Error fetching Trello boards:", error);
+      res.status(500).json({ message: "Failed to fetch Trello boards" });
+    }
+  });
+
+  app.get('/api/trello/boards/:boardId/lists', isAuthenticated, async (req: any, res) => {
+    try {
+      const { trelloService } = await import('./services/trello');
+      const { boardId } = req.params;
+      const lists = await trelloService.getBoardLists(boardId);
+      res.json(lists);
+    } catch (error) {
+      console.error("Error fetching Trello lists:", error);
+      res.status(500).json({ message: "Failed to fetch Trello lists" });
+    }
+  });
+
+  app.post('/api/trello/cards', isAuthenticated, async (req: any, res) => {
+    try {
+      const { trelloService } = await import('./services/trello');
+      const { listId, name, description } = req.body;
+      
+      if (!listId || !name) {
+        return res.status(400).json({ message: "listId and name are required" });
+      }
+      
+      const card = await trelloService.createCard(listId, name, description || '');
+      res.json(card);
+    } catch (error) {
+      console.error("Error creating Trello card:", error);
+      res.status(500).json({ message: "Failed to create Trello card" });
     }
   });
 

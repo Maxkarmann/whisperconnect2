@@ -30,8 +30,8 @@ export default function Landing() {
             Voice-Powered Task Management
           </h2>
           <p className="text-xl text-slate-300 mb-8 max-w-3xl mx-auto">
-            Transform your spoken thoughts into organized Trello cards instantly. 
-            Powered by OpenAI Whisper and Google Gemini AI for intelligent task processing.
+            Transform your spoken thoughts into organized Trello cards instantly with direct API integration. 
+            No more email workarounds - powered by OpenAI Whisper and Google Gemini AI for intelligent task processing.
           </p>
           <Button 
             size="lg" 
@@ -74,9 +74,9 @@ export default function Landing() {
               <div className="w-12 h-12 bg-blue-500/10 rounded-lg flex items-center justify-center mx-auto mb-4">
                 <Target className="h-6 w-6 text-blue-400" />
               </div>
-              <CardTitle className="text-white">Trello Integration</CardTitle>
+              <CardTitle className="text-white">Direct Trello API</CardTitle>
               <CardDescription className="text-slate-300">
-                Automatic card creation in your Trello boards
+                Real-time card creation with direct API integration - no email needed
               </CardDescription>
             </CardHeader>
           </Card>
@@ -123,8 +123,8 @@ export default function Landing() {
             </div>
             <div className="flex flex-col items-center">
               <div className="w-16 h-16 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xl mb-4">4</div>
-              <h4 className="font-semibold mb-2 text-white">Deliver</h4>
-              <p className="text-slate-300 text-sm">Tasks appear in your Trello board</p>
+              <h4 className="font-semibold mb-2 text-white">Create Cards</h4>
+              <p className="text-slate-300 text-sm">Direct API creates cards in your Trello board instantly</p>
             </div>
           </div>
         </div>

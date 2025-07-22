@@ -8,7 +8,10 @@ import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 
-if (!process.env.REPLIT_DOMAINS) {
+// Development check - if not Replit environment, skip domain validation
+const isDevelopment = process.env.NODE_ENV === 'development' || !process.env.REPLIT_DOMAINS;
+
+if (!isDevelopment && !process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
 }
 
@@ -24,6 +27,22 @@ const getOidcConfig = memoize(
 
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
+  
+  // For development, use memory store
+  if (isDevelopment) {
+    return session({
+      secret: process.env.SESSION_SECRET || 'development-secret',
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        httpOnly: true,
+        secure: false, // Disable secure cookies for local development
+        maxAge: sessionTtl,
+      },
+    });
+  }
+  
+  // Production: use PostgreSQL store
   const pgStore = connectPg(session);
   const sessionStore = new pgStore({
     conString: process.env.DATABASE_URL,
@@ -72,6 +91,49 @@ export async function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
+  // Development mode: simple mock authentication
+  if (isDevelopment) {
+    passport.serializeUser((user: Express.User, cb) => cb(null, user));
+    passport.deserializeUser((user: Express.User, cb) => cb(null, user));
+
+    app.get("/api/login", async (req, res) => {
+      // Create a mock user for development
+      const mockUser = {
+        claims: {
+          sub: "dev-user-123",
+          email: "developer@example.com",
+          first_name: "Dev",
+          last_name: "User",
+          profile_image_url: "https://via.placeholder.com/150",
+          exp: Math.floor(Date.now() / 1000) + 3600, // Expires in 1 hour
+        },
+        access_token: "mock-access-token",
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+      };
+
+      // Upsert the mock user
+      await upsertUser(mockUser.claims);
+
+      // Log in the user
+      req.login(mockUser, (err) => {
+        if (err) {
+          console.error("Login error:", err);
+          return res.status(500).json({ message: "Login failed" });
+        }
+        res.redirect("/");
+      });
+    });
+
+    app.get("/api/logout", (req, res) => {
+      req.logout(() => {
+        res.redirect("/");
+      });
+    });
+
+    return;
+  }
+
+  // Production mode: Replit OIDC authentication
   const config = await getOidcConfig();
 
   const verify: VerifyFunction = async (
@@ -130,7 +192,20 @@ export async function setupAuth(app: Express) {
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
 
-  if (!req.isAuthenticated() || !user.expires_at) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  // Development mode: simple authentication check
+  if (isDevelopment) {
+    if (user && user.claims && user.claims.sub) {
+      return next();
+    }
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  // Production mode: full token validation
+  if (!user.expires_at) {
     return res.status(401).json({ message: "Unauthorized" });
   }
 

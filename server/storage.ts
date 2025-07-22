@@ -166,4 +166,121 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-export const storage = new DatabaseStorage();
+// Mock storage for development without database
+export class MockStorage implements IStorage {
+  private users = new Map<string, User>();
+  private tasks = new Map<number, Task>();
+  private apiUsage = new Map<string, ApiUsage[]>();
+  private taskIdCounter = 1;
+
+  async getUser(id: string): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const user: User = {
+      ...userData,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.users.set(userData.id, user);
+    return user;
+  }
+
+  async createTask(task: InsertTaskData): Promise<Task> {
+    const newTask: Task = {
+      ...task,
+      id: this.taskIdCounter++,
+      createdAt: new Date(),
+    };
+    this.tasks.set(newTask.id, newTask);
+    return newTask;
+  }
+
+  async getUserTasks(userId: string, limit: number = 20): Promise<Task[]> {
+    const userTasks = Array.from(this.tasks.values())
+      .filter(task => task.userId === userId)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
+      .slice(0, limit);
+    return userTasks;
+  }
+
+  async getTaskById(id: number): Promise<Task | undefined> {
+    return this.tasks.get(id);
+  }
+
+  async updateTaskEmailSent(id: number): Promise<void> {
+    const task = this.tasks.get(id);
+    if (task) {
+      task.emailSent = true;
+      this.tasks.set(id, task);
+    }
+  }
+
+  async recordApiUsage(usage: InsertApiUsageData): Promise<ApiUsage> {
+    const newUsage: ApiUsage = {
+      ...usage,
+      id: Date.now(),
+      date: new Date(),
+    };
+    
+    if (!this.apiUsage.has(usage.userId)) {
+      this.apiUsage.set(usage.userId, []);
+    }
+    this.apiUsage.get(usage.userId)!.push(newUsage);
+    return newUsage;
+  }
+
+  async getUserApiUsage(userId: string, fromDate?: Date): Promise<ApiUsage[]> {
+    const userUsage = this.apiUsage.get(userId) || [];
+    if (fromDate) {
+      return userUsage.filter(usage => new Date(usage.date!) >= fromDate);
+    }
+    return userUsage;
+  }
+
+  async getUserDailyStats(userId: string): Promise<{
+    tasksCreated: number;
+    recordingTime: number;
+    totalCost: number;
+  }> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const todayTasks = Array.from(this.tasks.values())
+      .filter(task => 
+        task.userId === userId && 
+        new Date(task.createdAt!) >= today
+      );
+
+    return {
+      tasksCreated: todayTasks.length,
+      recordingTime: todayTasks.reduce((sum, task) => sum + (task.audioDuration || 0), 0),
+      totalCost: todayTasks.reduce((sum, task) => sum + (task.apiCost || 0), 0),
+    };
+  }
+
+  async getUserMonthlyStats(userId: string): Promise<{
+    totalCost: number;
+    whisperMinutes: number;
+    geminiTokens: number;
+  }> {
+    const thisMonth = new Date();
+    thisMonth.setDate(1);
+    thisMonth.setHours(0, 0, 0, 0);
+    
+    const monthlyUsage = this.apiUsage.get(userId) || [];
+    const thisMonthUsage = monthlyUsage.filter(usage => new Date(usage.date!) >= thisMonth);
+
+    return {
+      totalCost: thisMonthUsage.reduce((sum, usage) => sum + (usage.totalCost || 0), 0),
+      whisperMinutes: thisMonthUsage.reduce((sum, usage) => sum + (usage.whisperMinutes || 0), 0),
+      geminiTokens: thisMonthUsage.reduce((sum, usage) => sum + (usage.geminiTokens || 0), 0),
+    };
+  }
+}
+
+// Use mock storage for development, real storage for production
+const storage = process.env.DATABASE_URL ? new DatabaseStorage() : new MockStorage();
+
+export { storage };

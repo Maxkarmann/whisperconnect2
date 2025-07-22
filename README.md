@@ -107,7 +107,15 @@ SESSION_SECRET="your-secure-session-secret"
 npm run dev
 ```
 
-The application will be available at `http://localhost:5000`
+**Deploy to Vercel:**
+```bash
+npm install -g vercel
+vercel --prod
+```
+
+Or use the [One-Click Deploy Guide](QUICK_DEPLOY.md)
+
+The application will be available at `http://localhost:5000` (dev) or your Vercel URL (production)
 
 ## 🎯 How to Use
 
